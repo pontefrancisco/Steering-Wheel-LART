@@ -76,6 +76,8 @@ frame.place(x=100, y=50)
 rect_width = 160
 rect_height = 80
 soc_level = 0.60
+speed = 88  # Initial speed value
+
 
 # Retângulo 1 - Temp ENGINE
 rect_1 = ctk.CTkFrame(frame, width=rect_width, height=rect_height, corner_radius=15) # Cria um retângulo
@@ -103,7 +105,6 @@ title_4 = ctk.CTkLabel(rect_4, text="Kw Inst.", font=("Arial", 20))
 title_4.place(relx=0.5, rely=0.35, anchor='center')
 data_label_4 =ctk.CTkLabel(rect_4, text="70 kW", font=("Arial", 24, "bold"))
 data_label_4.place(relx=0.5, rely=0.65, anchor='center')
-
 
 # Retângulo 5 - Kw Limit
 rect_5 = ctk.CTkFrame(frame, width=285, height=rect_height, corner_radius=5)
@@ -137,20 +138,31 @@ soc_right_text.place(relx=0.5, rely=0.5, anchor='center') # Posicionar a label n
 #####Speed#####
 
 # Display speed in the center of the main rectangle
-speed = 174  # Initial speed value
 speed_label = ctk.CTkLabel(frame, text=str(speed), font=("Arial", 150, "bold"))
+
+
+
+######Incrementar Velocidade Para Testes#####
+def update_speed():
+    global speed
+    speed_label.configure(text=str(speed))
+    speed += 1  # Increment speed for demonstration purposes
+    frame.after(1000, update_speed)  # Schedule the function to be called again after 100 ms
+
+update_speed()
+##############################################
+
 speed_label.place(relx=0.5, rely=0.5, anchor='center')
-
-unit_label = ctk.CTkLabel(frame, text="Km/h", font=("Arial", 30))
+unit_label = ctk.CTkLabel(frame, text="Km/h", font=("Arial", 30, "bold"))
 unit_label.place(relx=0.7, rely=0.60, anchor='center')
-if speed > 100:
-    unit_label.place(relx=0.8, rely=0.63, anchor='center')
-else:
-    unit_label.place(relx=0.7, rely=0.63, anchor='center')
 ############
+def check_speed():
+    if speed > 100:
+        unit_label.place(relx=0.8, rely=0.63, anchor='center')
+    else:
+        unit_label.place(relx=0.7, rely=0.63, anchor='center')
+    frame.after(50, check_speed)  # Schedule the function to be called again after 100 ms
 
-
-
-
+check_speed()
 #RUN
 app.mainloop()
