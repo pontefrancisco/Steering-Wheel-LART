@@ -64,105 +64,133 @@ app = ctk.CTk()
 app.geometry("800x480")
 app.title("Dashboard")
 
-# Title
-title_label = ctk.CTkLabel(app, text="Dashboard", font=("TkDefaultFont", 20))
-title_label.pack(pady=10)
+# R2D WARNING
+R2D_label = ctk.CTkLabel(app, text="R2D PLACEHOLDER", font=("Noto Sans Bold", 35, "bold"), text_color="red")
+R2D_label.place(relx=0.5, rely=0.04, anchor="center")
 
 # Main Frame
 frame = ctk.CTkFrame(app, width=600, height=400)
-frame.place(x=100, y=50)
+frame.place(relx=0.5, rely=0.5, anchor="center")
 
 # Variables
 rect_width = 160
 rect_height = 80
-soc_level = 0.60
-speed = 88  # Initial speed value
+speed = 36  # Initial speed value DEBUGGING
 
+soc_lv_level= 0.6
+soc_hv_level = 0.78
 
-# Retângulo 1 - Temp ENGINE
+data_1 = 147
+data_2 = 20
+data_3 = 30
+data_4 = 40
+data_5 = 50
+data_6 = 60
+
+# Retângulo 1 - DATA XXXXXX
 rect_1 = ctk.CTkFrame(frame, width=rect_width, height=rect_height, corner_radius=15) # Cria um retângulo
 rect_1.place(x=10, y=10) # Posição do retângulo
-data_1 = ctk.CTkLabel(rect_1, text="Temp 1: \n65°C", font=("Arial", 18)) # Cria uma Label
-data_1 = ctk.CTkLabel(rect_1, text="Temp 1: \n65°C", font=("Arial", 18)) # Cria uma Label
-data_1.place(relx=0.5, rely=0.5, anchor='center') # Posição da Label
+title_1 = ctk.CTkLabel(rect_1, text="Temp 1 ", font=("Noto Sans Bold ", 18)) # Cria uma Label
+title_1.place(relx=0.5, rely=0.3, anchor='center') # Posição da Label
+data_label_1=ctk.CTkLabel(rect_1, text=data_1, font=("Noto Sans Bold ", 24, "bold"))
+data_label_1.place(relx=0.5, rely=0.65, anchor='center')
 
-# Retângulo 2 - Temp COLD
+# Retângulo 2 - DATA XXXXXX
 rect_2 = ctk.CTkFrame(frame, width=rect_width, height=rect_height, corner_radius=15)
 rect_2.place(x=220, y=10)
-data_2 = ctk.CTkLabel(rect_2, text="Temp COLD: \n40°C", font=("Arial", 18)) # Cria uma Label
-data_2.place(relx=0.5, rely=0.5, anchor='center')
+title_2 = ctk.CTkLabel(rect_2, text="Temp COLD", font=("Noto Sans Bold ", 18)) # Cria uma Label
+title_2.place(relx=0.5, rely=0.3, anchor='center')
+data_label_2=ctk.CTkLabel(rect_2, text=data_2, font=('Noto Sans Bold ', 24, 'bold'))
+data_label_2.place(relx=0.5, rely=0.65, anchor='center')
 
 # Retângulo 3 - Temp Bateria
 rect_3 = ctk.CTkFrame(frame, width=rect_width, height=rect_height, corner_radius=15)
 rect_3.place(x=430, y=10)
-data_3 = ctk.CTkLabel(rect_3, text="Temp 3:\n 32.6°C", font=("Arial", 18)) # Cria uma Label
-data_3.place(relx=0.5, rely=0.5, anchor='center')
+title_3 = ctk.CTkLabel(rect_3, text="Temp 3", font=("Noto Sans Bold ", 18)) # Cria uma Label
+title_3.place(relx=0.5, rely=0.3, anchor='center')
+data_label_3=ctk.CTkLabel(rect_3, text=data_3, font=("Noto Sans Bold ", 24, "bold"))
+data_label_3.place(relx=0.5, rely=0.65, anchor='center')
 
 # Retângulo 4 - Kw Instantenous
 rect_4 = ctk.CTkFrame(frame, width=285, height=rect_height, corner_radius=5)
 rect_4.place(x=10, rely=0.75)
-title_4 = ctk.CTkLabel(rect_4, text="Kw Inst.", font=("Arial", 20))
-title_4.place(relx=0.5, rely=0.35, anchor='center')
-data_label_4 =ctk.CTkLabel(rect_4, text="70 kW", font=("Arial", 24, "bold"))
-data_label_4.place(relx=0.5, rely=0.65, anchor='center')
+title_4 = ctk.CTkLabel(rect_4, text="Kw Inst:", font=("Noto Sans Bold ", 24))
+title_4.place(relx=0.3, rely=0.5, anchor='center')
+data_label_4 =ctk.CTkLabel(rect_4, text=data_4, font=("Noto Sans Bold ", 45, "bold"))
+data_label_4.place(relx=0.7, rely=0.5, anchor='center')
 
 # Retângulo 5 - Kw Limit
 rect_5 = ctk.CTkFrame(frame, width=285, height=rect_height, corner_radius=5)
 rect_5.place(x=305, rely=0.75)
-title_5 = ctk.CTkLabel(rect_5, text="Kw Limit:", font=("Arial", 20))
-title_5.place(relx=0.5, rely=0.35, anchor='center')
-data_label_5 =ctk.CTkLabel(rect_5, text="50 kW", font=("Arial", 24, "bold"))
-data_label_5.place(relx=0.5, rely=0.65, anchor='center')
+title_5 = ctk.CTkLabel(rect_5, text="Kw Limit:", font=("Noto Sans Bold ", 24))
+title_5.place(relx=0.3, rely=0.5, anchor='center')
+data_label_5 =ctk.CTkLabel(rect_5, text=data_5, font=("Noto Sans Bold ", 45, "bold"))
+data_label_5.place(relx=0.7, rely=0.5, anchor='center')
 
 #####Barras SoC#####
 
-# Barra lateral esquerda (SOC)
-soc_HV_bar_label = ctk.CTkLabel(app, text="SOC", font=("Arial", 18))
-soc_HV_bar_label.place(x=30, y=50)
+# Progress Bar SoC LV - Left
+soc_HV_bar_label = ctk.CTkLabel(app, text="SoC\nLV", font=("Noto Sans Bold ", 20))
+soc_HV_bar_label.place(x=33, y=20)
 soc_HV_bar = ctk.CTkProgressBar(app, orientation="vertical", width=60, height=320, corner_radius=4)
 soc_HV_bar.place(x=20, y=80)
-soc_HV_bar.set(soc_level)
-soc_HV_int_text = ctk.CTkLabel(soc_HV_bar, text=(soc_level*100), font=("Arial", 20, "bold"))
-soc_HV_int_text.place(relx=0.5, rely=0.5, anchor='center')
+soc_HV_bar.set(soc_lv_level)
+soc_HV_per = ctk.CTkLabel(app, text = str(int(soc_lv_level * 100)) + '%', font=("Noto Sans Bold ", 27, "bold"))
+soc_HV_per.place(x=50, y=430, anchor='center')
 
-# Barra lateral direita (SOC-LV)
-soc_lv_bar_label = ctk.CTkLabel(app, text="SOC-LV", font=("Arial", 18)) # Criar label de topo da barra
-soc_lv_bar_label.place(x=720, y=50) # Posicionar a label do topo da barra
-soc_lv_bar = ctk.CTkProgressBar(app, orientation="vertical", width=60, height=320, corner_radius=4) # Criar a barra
-soc_lv_bar.place(x=720, y=80) # Posicionar a barra
-soc_lv_bar.set(soc_level) # Nível da Barra de Acordo com o Valor do SoC
-soc_right_text = ctk.CTkLabel(soc_lv_bar, text=(soc_level*100), font=("Arial", 20, "bold")) # Criar Label no Interior da Barra
-soc_right_text.place(relx=0.5, rely=0.5, anchor='center') # Posicionar a label no interior da barra
+# Progress Bar SoC HV - Right
+soc_LV_bar_label = ctk.CTkLabel(app, text="SoC\nHV", font=("Noto Sans Bold ", 20)) # Criar label de topo da barra
+soc_LV_bar_label.place(x=733, y=20) # Posicionar a label do topo da barra
+soc_LV_bar = ctk.CTkProgressBar(app, orientation="vertical", width=60, height=320, corner_radius=4) # Criar a barra
+soc_LV_bar.place(x=720, y=80) # Posicionar a barra
+soc_LV_bar.set(soc_hv_level) # Nível da Barra de Acordo com o Valor do SoC
+soc_LV_per = ctk.CTkLabel(app, text = str(int(soc_hv_level * 100)) + '%', font=("Noto Sans Bold ", 27, "bold")) # Criar Label no Interior da Barra
+soc_LV_per.place(x=750, y=430, anchor='center') # Posicionar a label no interior da barra
 
-#########
-#####Speed#####
-
-# Display speed in the center of the main rectangle
-speed_label = ctk.CTkLabel(frame, text=str(speed), font=("Arial", 150, "bold"))
-
-
-
-######Incrementar Velocidade Para Testes#####
-def update_speed():
-    global speed
-    speed_label.configure(text=str(speed))
-    speed += 1  # Increment speed for demonstration purposes
-    frame.after(1000, update_speed)  # Schedule the function to be called again after 100 ms
-
-update_speed()
-##############################################
-
+#Speed and Units
+speed_label = ctk.CTkLabel(frame, text=str(speed), font=("Noto Sans Bold ", 130, "bold"))
 speed_label.place(relx=0.5, rely=0.5, anchor='center')
-unit_label = ctk.CTkLabel(frame, text="Km/h", font=("Arial", 30, "bold"))
-unit_label.place(relx=0.7, rely=0.60, anchor='center')
-############
-def check_speed():
+speed_unit = ctk.CTkLabel(frame, text="Km/h", font=("Noto Sans Bold ", 30, "bold"))
+speed_unit.place(relx=0.75, rely=0.60, anchor='center')
+
+def check_speed(): # Update speed unit position on triple digits
     if speed > 100:
-        unit_label.place(relx=0.8, rely=0.63, anchor='center')
+        speed_unit.place(relx=0.77, rely=0.6, anchor='center')
     else:
-        unit_label.place(relx=0.7, rely=0.63, anchor='center')
-    frame.after(50, check_speed)  # Schedule the function to be called again after 100 ms
+        speed_unit.place(relx=0.7, rely=0.6, anchor='center')
+    frame.after(50, check_speed)  # Schedule the function to be called again after 50 ms
 
 check_speed()
-#RUN
+
+def update_data():
+    global speed
+    global data_1
+    global data_2
+    global data_3
+    global data_4
+    global data_5
+    global data_6
+    global soc_lv_level
+    global soc_hv_level
+
+    speed_label.configure(text=str(speed))
+    speed += 1  # Increment speed for demonstration purposes
+
+    data_label_1.configure(text=str(data_1))
+    data_label_2.configure(text=str(data_2))
+    data_label_3.configure(text=str(data_3))
+    data_label_4.configure(text=str(data_4))
+    data_label_5.configure(text=str(data_5))
+
+    soc_HV_bar.set(soc_lv_level)
+    soc_HV_per.configure(text=str(int(soc_lv_level * 100)) + '%')
+    soc_LV_bar.set(soc_hv_level)
+    soc_LV_per.configure(text=str(int(soc_hv_level * 100)) + '%')
+
+    data_1 += 1
+
+    frame.after(1000, update_data)  # Schedule the function to be called again after 1 s
+update_data()
+
+#RUN APP
 app.mainloop()
