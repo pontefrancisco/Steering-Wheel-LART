@@ -1,38 +1,10 @@
 import customtkinter as ctk
 import time
-
+import can
+import threading
 
 ctk.set_appearance_mode("light")  # ou "dark"
 ctk.set_default_color_theme("blue")  # Testa diferentes temas: "blue", "green", "dark-blue"
-
-# Função para exibir barras de cores como no padrão de calibração de telas
-def color_bars_test():
-    test_app = ctk.CTk()
-    test_app.geometry("800x480")
-    test_app.title("Color Bars Calibration Test")
-
-    # Criar o frame principal que irá conter as barras de cores
-    bar_frame = ctk.CTkFrame(test_app, width=800, height=480)
-    bar_frame.pack()
-
-    # Cores usadas nas barras
-    colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#00FFFF", "#FF00FF", "#FFFFFF"]
-
-    # Tamanho de cada barra (dividindo a largura total pela quantidade de barras)
-    bar_width = int(800 / len(colors))
-
-    # Criar as barras de cores no estilo de calibração
-    for i, color in enumerate(colors):
-        bar = ctk.CTkFrame(bar_frame, width=bar_width, height=480, fg_color=color)
-        bar.place(x=i * bar_width, y=0)
-
-    test_app.update()
-    time.sleep(1)  # Mostrar as barras de calibração por 1s
-
-    # Fechar a janela de teste de barras
-    test_app.destroy()
-#Start Color Bars
-#color_bars_test()
 
 # Função para exibir cores sólidas (RGBW) por ciclos rápidos
 def solid_color_test():
@@ -52,9 +24,9 @@ def solid_color_test():
             time.sleep(0.3)  # Muda a cor a cada 0.5 segundos
 
     solid_test_app.destroy()  # Fecha a janela de teste de cor
-#solid_color_test()
+solid_color_test()
 
-#################Separação dos Testes#########################
+
 
 # Start Main Window and Window Attributes
 app = ctk.CTk()
@@ -171,20 +143,15 @@ def update_data():
     global soc_hv_level
 
     speed_label.configure(text=str(speed))
-
     data_label_1.configure(text=str(data_1))
     data_label_2.configure(text=str(data_2))
     data_label_3.configure(text=str(data_3))
     data_label_4.configure(text=str(data_4))
     data_label_5.configure(text=str(data_5))
-
     soc_HV_bar.set(soc_lv_level)
     soc_HV_per.configure(text=str(int(soc_lv_level * 100)) + '%')
     soc_LV_bar.set(soc_hv_level)
     soc_LV_per.configure(text=str(int(soc_hv_level * 100)) + '%')
-
-    data_1 += 1
-    speed += 1  # Increment speed for demonstration purposes
 
     frame.after(1000, update_data)  # Schedule the function to be called again after 1 s
 update_data()
@@ -238,45 +205,40 @@ def open_debug_window():
 
         y_position += len(items) * 30 + 70  # Update y position for the next category
 
-
-
-
-
-
-######################################################################################################## Debug Window
 def open_calibration_window():
     calibration_window = ctk.CTkToplevel(app)
     calibration_window.geometry("800x480")
     calibration_window.title("CALIBRATION")
-    close_button = ctk.CTkButton(calibration_window, text="Close", command=calibration_window.destroy) # Close Button
-    close_button.place(y=450)
+    # Removed the line setting the entire window background to black
 
-    # Create the header
-    line = ctk.CTkFrame(calibration_window, width=850, height=7, fg_color="black")
-    line.place(x=-5, y=50)
+    # Create the header frame
+    header_frame = ctk.CTkFrame(calibration_window, width=800, height=60, fg_color="black")
+    header_frame.place(x=0, y=0)
+
     # Create the title label
-    title_label = ctk.CTkLabel(calibration_window, text="CALIBRATION", font=("Noto Sans Bold", 32, "bold"), bg_color="transparent")
+    title_label = ctk.CTkLabel(calibration_window, text="CALIBRATION", font=("Noto Sans Bold", 32, "bold"), bg_color="black")
     title_label.place(relx=0.5, y=23, anchor='center')
 
     # Function to flash the title label
     def flash_title():
         current_color = title_label.cget("text_color")
         new_color = "yellow" if current_color == "red" else "red"
-        title_label.configure(text_color=new_color, bg_color="black")
+        title_label.configure(text_color=new_color)
         calibration_window.after(300, flash_title)  # Flash every 300 ms
 
     flash_title()
+
     # Display the current time on the far left of the header
     def update_time():
         current_time = time.strftime("%H:%M")
         time_label.configure(text=current_time)
         calibration_window.after(1000, update_time)  # Update the time every second
 
-    time_label = ctk.CTkLabel(calibration_window, text="", font=("Noto Sans Bold", 27, "bold"))
+    time_label = ctk.CTkLabel(calibration_window, text="", font=("Noto Sans Bold", 27, "bold"), text_color="white", bg_color="black")
     time_label.place(x=20, y=8)
     update_time()
 
-    # Placeholder data for debugging
+    # Placeholder data for calibration
     categories = {
         "Cells": ["Cell Voltage", "Cell Temperature", "Cell Resistance"],
         "Drivetrain": ["Motor RPM", "Motor Temperature", "Torque"],
@@ -290,6 +252,16 @@ def open_calibration_window():
         category_frame = ctk.CTkFrame(calibration_window, width=350, height=len(items) * 30 + 50, corner_radius=10)
         category_frame.place(x=20 if category != "Test" else 420, y=y_position)
 
+        # Create a label for the category
+        category_label = ctk.CTkLabel(category_frame, text=category, font=("Noto Sans Bold", 20))
+        category_label.place(relx=0.5, rely=0.1, anchor='center')
+
+        # Create labels for each item in the category
+        for i, item in enumerate(items):
+            item_label = ctk.CTkLabel(category_frame, text=item, font=("Noto Sans", 16))
+            item_label.place(x=10, y=40 + i * 30)
+
+        y_position += len(items) * 30 + 70  # Update y position for the next category
 
 ##### PLACEHOLDER BUTTON TO OPEN DEBUG WINDOW #####
 # Button to open the new window
@@ -299,7 +271,60 @@ open_window_button = ctk.CTkButton(app, text="CALIBRATION", command=open_calibra
 open_window_button.place(relx=0.7, rely=0.95, anchor='center')
 ###################################################
 
+# Function to receive CAN messages
+def receive_messages():
+    bus = can.Bus(interface='socketcan', channel='slcan0', bitrate=1000000)
+    while True:
+        try:
+            msg = bus.recv(timeout=1.0)
+            if msg:
+                # Update the GUI from the main thread
+                app.after(0, update_gui, msg)
+        except can.CanError as e:
+            print(f"Error receiving message: {e}")
+            break
+    bus.shutdown()
 
+# Function to update the GUI with received data
+def update_gui(msg):
+    global data_1, data_2, data_3, data_4, data_5, soc_lv_level, soc_hv_level, speed
+    # Process the message and extract data
+    match msg.arbitration_id:
+        case 0x101:
+            # Update data_1
+            data_1 = str(msg.data[0])
+            data_label_1.configure(text=data_1)
+        case 0x102:
+            # Update data_2
+            data_2 = str(msg.data[0])
+            data_label_2.configure(text=data_2)
+        case 0x103:
+            # Update data_3
+            data_3 = str(msg.data[0])
+            data_label_3.configure(text=data_3)
+        case 0x104:
+            # Update data_4
+            data_4 = str(msg.data[0])
+            data_label_4.configure(text=data_4)
+        case 0x105:
+            # Update data_5
+            data_5 = str(msg.data[0])
+            data_label_5.configure(text=data_5)
+        case 0x200:
+            # Update soc_lv_level
+            soc_lv_level = msg.data[0] / 100.0
+            soc_HV_bar.set(soc_lv_level)
+            soc_HV_per.configure(text=str(int(soc_lv_level * 100)) + '%')
+        case 0x201:
+            # Update soc_hv_level
+            soc_hv_level = msg.data[0] / 100.0
+            soc_LV_bar.set(soc_hv_level)
+            soc_LV_per.configure(text=str(int(soc_hv_level * 100)) + '%')
+        # Add more cases as needed for other messages
+
+# Start the receiver thread
+receiver_thread = threading.Thread(target=receive_messages, daemon=True)
+receiver_thread.start()
 
 
 # RUN APP
