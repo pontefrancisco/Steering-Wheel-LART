@@ -2,8 +2,10 @@ import customtkinter as ctk
 import time
 import can
 import threading
+from cxxheaderparser.simple import parse_file  # Import cxxheaderparser
+import os
 
-ctk.set_appearance_mode("light")  # ou "dark"
+ctk.set_appearance_mode("dark")  # ou "dark"
 ctk.set_default_color_theme("blue")  # Testa diferentes temas: "blue", "green", "dark-blue"
 
 # Função para exibir cores sólidas (RGBW) por ciclos rápidos
@@ -271,6 +273,21 @@ open_window_button = ctk.CTkButton(app, text="CALIBRATION", command=open_calibra
 open_window_button.place(relx=0.7, rely=0.95, anchor='center')
 ###################################################
 
+# Function to parse header files and retrieve header maps
+def parse_header_files():
+    header_map = {}
+    header_folder = "/home/francisco/Documents/LART-EE/Can-Header-Map"
+    for filename in os.listdir(header_folder):
+        if filename.endswith(".h"):
+            filepath = os.path.join(header_folder, filename)
+            with open(filepath, 'r') as file:
+                header_map[filename] = parse_file(file)
+    return header_map
+
+# Retrieve header maps
+header_maps = parse_header_files()
+can_data_db = header_maps.get("CAN_datadb.h", {})
+
 # Function to receive CAN messages
 def receive_messages():
     bus = can.Bus(interface='socketcan', channel='slcan0', bitrate=1000000)
@@ -287,45 +304,43 @@ def receive_messages():
 
 # Function to update the GUI with received data
 def update_gui(msg):
-    global data_1, data_2, data_3, data_4, data_5, soc_lv_level, soc_hv_level, speed
-    # Process the message and extract data
-    match msg.arbitration_id:
-        case 0x101:
-            # Update data_1
-            data_1 = str(msg.data[0])
-            data_label_1.configure(text=data_1)
-        case 0x102:
-            # Update data_2
-            data_2 = str(msg.data[0])
-            data_label_2.configure(text=data_2)
-        case 0x103:
-            # Update data_3
-            data_3 = str(msg.data[0])
-            data_label_3.configure(text=data_3)
-        case 0x104:
-            # Update data_4
-            data_4 = str(msg.data[0])
-            data_label_4.configure(text=data_4)
-        case 0x105:
-            # Update data_5
-            data_5 = str(msg.data[0])
-            data_label_5.configure(text=data_5)
-        case 0x200:
-            # Update soc_lv_level
-            soc_lv_level = msg.data[0] / 100.0
-            soc_HV_bar.set(soc_lv_level)
-            soc_HV_per.configure(text=str(int(soc_lv_level * 100)) + '%')
-        case 0x201:
-            # Update soc_hv_level
-            soc_hv_level = msg.data[0] / 100.0
-            soc_LV_bar.set(soc_hv_level)
-            soc_LV_per.configure(text=str(int(soc_hv_level * 100)) + '%')
-        # Add more cases as needed for other messages
+    global data_1, data_2, data_3, data_4, data_5, data_6, speed, soc_lv_level, soc_hv_level
+    can_message = can_data_db.get(msg.arbitration_id, None)
+    if can_message:
+        data = msg.data
+        for signal in can_message.signals:
+            value = int.from_bytes(data[signal.start_bit // 8:(signal.start_bit + signal.size) // 8], byteorder='little')
+            if signal.name == "inverter_temperature":
+                data_2 = str(value + 40)
+                data_label_2.configure(text=data_2)
+            elif signal.name == "motor_temperature":
+                data_1 = str(value + 40)
+                data_label_1.configure(text=data_1)
+            elif signal.name == "motor_rpm":
+                data_3 = str(value)
+                data_label_3.configure(text=data_3)
+            elif signal.name == "torque":
+                data_4 = str(value)
+                data_label_4.configure(text=data_4)
+            elif signal.name == "power_instant":
+                data_5 = str(value)
+                data_label_5.configure(text=data_5)
+            elif signal.name == "power_limit":
+                data_6 = str(value)
+            elif signal.name == "speed":
+                speed = value
+                speed_label.configure(text=str(speed))
+            elif signal.name == "soc_lv_level":
+                soc_lv_level = value / 100.0
+                soc_HV_bar.set(soc_lv_level)
+                soc_HV_per.configure(text=str(int(soc_lv_level * 100)) + '%')
+            elif signal.name == "soc_hv_level":
+                soc_hv_level = value / 100.0
+                soc_LV_bar.set(soc_hv_level)
+                soc_LV_per.configure(text=str(int(soc_hv_level * 100)) + '%')
 
 # Start the receiver thread
 receiver_thread = threading.Thread(target=receive_messages, daemon=True)
 receiver_thread.start()
 
-
-# RUN APP
 app.mainloop()
