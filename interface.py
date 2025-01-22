@@ -26,16 +26,15 @@ def solid_color_test():
             time.sleep(0.3)  # Muda a cor a cada 0.5 segundos
 
     solid_test_app.destroy()  # Fecha a janela de teste de cor
-solid_color_test()
+#solid_color_test()
 
 
 
 # Start Main Window and Window Attributes
 app = ctk.CTk()
 app.geometry("800x480")
-app.attributes("-fullscreen", True)
 app.title("Dashboard")
-
+app.attributes("-fullscreen", True)
 # R2D WARNING
 R2D_label = ctk.CTkLabel(app, text="R2D PLACEHOLDER", font=("Noto Sans Bold", 30, "bold"), text_color="red")
 R2D_label.place(relx=0.5, rely=0.04, anchor="center")
@@ -277,7 +276,7 @@ open_window_button.place(relx=0.7, rely=0.95, anchor='center')
 # Function to parse header files and retrieve header maps
 def parse_header_files():
     header_map = {}
-    header_folder = "/home/francisco/Documents/LART-EE/Can-Header-Map"
+    header_folder = "Can-Header-Map"
     for filename in os.listdir(header_folder):
         if filename.endswith(".h"):
             filepath = os.path.join(header_folder, filename)
