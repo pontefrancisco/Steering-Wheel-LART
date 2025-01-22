@@ -33,6 +33,7 @@ solid_color_test()
 # Start Main Window and Window Attributes
 app = ctk.CTk()
 app.geometry("800x480")
+app.attributes("-fullscreen", True)
 app.title("Dashboard")
 
 # R2D WARNING
