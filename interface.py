@@ -273,6 +273,7 @@ open_window_button = ctk.CTkButton(app, text="CALIBRATION", command=open_calibra
 open_window_button.place(relx=0.7, rely=0.95, anchor='center')
 ###################################################
 
+"""
 # Function to parse header files and retrieve header maps
 def parse_header_files():
     header_map = {}
@@ -287,7 +288,7 @@ def parse_header_files():
 # Retrieve header maps
 header_maps = parse_header_files()
 can_data_db = header_maps.get("CAN_datadb.h", {})
-
+"""
 # Function to receive CAN messages
 def receive_messages():
     bus = can.Bus(interface='socketcan', channel='slcan0', bitrate=1000000)
@@ -301,7 +302,7 @@ def receive_messages():
             print(f"Error receiving message: {e}")
             break
     bus.shutdown()
-
+    
 # Function to update the GUI with received data
 def update_gui(msg):
     global data_1, data_2, data_3, data_4, data_5, data_6, speed, soc_lv_level, soc_hv_level
