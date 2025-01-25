@@ -4,6 +4,7 @@ import can
 import threading
 from cxxheaderparser.simple import parse_file  # Import cxxheaderparser
 import os
+import re
 
 ctk.set_appearance_mode("dark")  # ou "dark"
 ctk.set_default_color_theme("blue")  # Testa diferentes temas: "blue", "green", "dark-blue"
@@ -66,7 +67,7 @@ title_1.place(relx=0.5, rely=0.25, anchor='center') # Posição da Label
 data_label_1=ctk.CTkLabel(rect_1, text=data_1, font=("Noto Sans Bold ", 30, "bold"))
 data_label_1.place(relx=0.5, rely=0.65, anchor='center')
 
-# Retângulo 2 - DATA XXXXXX
+# Retângulo 2 - DATA XXXXX
 rect_2 = ctk.CTkFrame(frame, width=rect_width, height=rect_height, corner_radius=15)
 rect_2.place(x=220, y=10)
 title_2 = ctk.CTkLabel(rect_2, text="Temp COLD", font=("Noto Sans Bold ", 18)) # Cria uma Label
@@ -273,72 +274,65 @@ open_window_button = ctk.CTkButton(app, text="CALIBRATION", command=open_calibra
 open_window_button.place(relx=0.7, rely=0.95, anchor='center')
 ###################################################
 
-"""
-# Function to parse header files and retrieve header maps
-def parse_header_files():
-    header_map = {}
-    header_folder = "Can-Header-Map"
-    for filename in os.listdir(header_folder):
-        if filename.endswith(".h"):
-            filepath = os.path.join(header_folder, filename)
-            with open(filepath, 'r') as file:
-                header_map[filename] = parse_file(file)
-    return header_map
-
-# Retrieve header maps
-header_maps = parse_header_files()
-can_data_db = header_maps.get("CAN_datadb.h", {})
-"""
-# Function to receive CAN messages
 def receive_messages():
-    bus = can.Bus(interface='socketcan', channel='slcan0', bitrate=1000000)
+    bus = can.Bus(interface="socketcan", channel="can0", bitrate=1000000)
     while True:
-        try:
-            msg = bus.recv(timeout=1.0)
-            if msg:
-                # Update the GUI from the main thread
-                app.after(0, update_gui, msg)
-        except can.CanError as e:
-            print(f"Error receiving message: {e}")
-            break
+        msg = bus.recv()
+        if msg:
+            print(f"[DEBUG] Received CAN ID={hex(msg.arbitration_id)}, Data={msg.data}")
+            app.after(0, update_gui, msg)  # Schedule GUI update
     bus.shutdown()
-    
-# Function to update the GUI with received data
+
+def parse_can_header(header_path):
+    macros_by_id = {}
+    decode_macros = {}
+    with open(header_path, 'r') as file:
+        for line in file:
+            match = re.match(r'#define CAN_(\w+)\s+(\w+)', line)
+            if match:
+                can_id = int(match.group(2), 16)
+                if can_id not in macros_by_id:
+                    macros_by_id[can_id] = []
+                macros_by_id[can_id].append(match.group(1))
+            match = re.match(r'#define (MAP_DECODE_\w+)\s+(.+)', line)
+            if match:
+                decode_macros[match.group(1)] = match.group(2)
+    return macros_by_id, decode_macros
+
+def decode_data(data_bytes, macro_expr):
+    data_str = ''.join(f'{byte:02x}' for byte in data_bytes)
+    macro_expr_python = re.sub(r'\bdata\[(\d+)\]', lambda m: f'int(data_str[{int(m.group(1)) * 2}:{int(m.group(1)) * 2 + 2}], 16)', macro_expr)
+    return eval(macro_expr_python)
+
+# Parse macros on startup
+HEADER_PATH = "CAN_datadb.h"
+macros_by_id, decode_macros = parse_can_header(HEADER_PATH)
+
 def update_gui(msg):
-    global data_1, data_2, data_3, data_4, data_5, data_6, speed, soc_lv_level, soc_hv_level
-    can_message = can_data_db.get(msg.arbitration_id, None)
-    if can_message:
-        data = msg.data
-        for signal in can_message.signals:
-            value = int.from_bytes(data[signal.start_bit // 8:(signal.start_bit + signal.size) // 8], byteorder='little')
-            if signal.name == "inverter_temperature":
-                data_2 = str(value + 40)
-                data_label_2.configure(text=data_2)
-            elif signal.name == "motor_temperature":
-                data_1 = str(value + 40)
-                data_label_1.configure(text=data_1)
-            elif signal.name == "motor_rpm":
-                data_3 = str(value)
-                data_label_3.configure(text=data_3)
-            elif signal.name == "torque":
-                data_4 = str(value)
-                data_label_4.configure(text=data_4)
-            elif signal.name == "power_instant":
-                data_5 = str(value)
-                data_label_5.configure(text=data_5)
-            elif signal.name == "power_limit":
-                data_6 = str(value)
-            elif signal.name == "speed":
-                speed = value
-                speed_label.configure(text=str(speed))
-            elif signal.name == "soc_lv_level":
-                soc_lv_level = value / 100.0
-                soc_HV_bar.set(soc_lv_level)
-                soc_HV_per.configure(text=str(int(soc_lv_level * 100)) + '%')
-            elif signal.name == "soc_hv_level":
-                soc_hv_level = value / 100.0
-                soc_LV_bar.set(soc_hv_level)
-                soc_LV_per.configure(text=str(int(soc_hv_level * 100)) + '%')
+    if msg.arbitration_id in macros_by_id:
+        print(f"[DEBUG] Recognized ID={hex(msg.arbitration_id)}; Macros={macros_by_id[msg.arbitration_id]}")
+        for macro_name in macros_by_id[msg.arbitration_id]:
+            if macro_name in decode_macros:
+                expr = decode_macros[macro_name]
+                result = decode_data(msg.data, expr)
+                print(f"[DEBUG] Macro='{macro_name}' DecodedValue={result}")
+                match macro_name:
+                    case "MAP_DECODE_MOTOR_TEMPERATURE":
+                        data_label_1.configure(text=str(result))
+                    case "MAP_DECODE_INVERTER_TEMPERATURE":
+                        data_label_2.configure(text=str(result))
+                    case "MAP_DECODE_CONSUMED_POWER":
+                        data_label_3.configure(text=str(result))
+                    case "MAP_DECODE_TARGET_POWER":
+                        data_label_4.configure(text=str(result))
+                    case "MAP_DECODE_BRAKE_PRESSURE":
+                        data_label_5.configure(text=str(result))
+                    # case "MAP_DECODE_TOQUE_VECTORING":  # Example
+                    #     data_label_3.configure(text=str(result))
+                    case _:
+                        pass
+            else:
+                print(f"[DEBUG] Skipping non-decode macro='{macro_name}'")
 
 # Start the receiver thread
 receiver_thread = threading.Thread(target=receive_messages, daemon=True)
