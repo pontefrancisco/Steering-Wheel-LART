@@ -6,45 +6,24 @@ User: root
 Password: root
 ```
 
-## Iniciar sistema
-
-Caso o sistema se encontre bem configurado, para arrancar com a interface gráfica do volante, apenas será necessário correr o comando:
-```bash
-startx
-```
-
 ---
 
-## Configuração Inicial do Sistema
+## Colocar a interface de CAN a funcionar num Raspberry Pi/BananaPI
 
-### Configuração Física
-
-Interface de CAN física a funcionar num Raspberry Pi/BananaPI
-
-Fazer as conexões físicas:
+### 1. Fazer as conexões físicas
 
 O pinout para ligar MCP2515 a um Raspberry Pi Zero:
 
 ![Raspberry Pi Image](https://forums.raspberrypi.com/download/file.php?id=13939&sid=9352ccfb77f2a6f527bc6fe32d9c964e)
 
-### Configurações no sistema
-#### 1. Atualizar o sistema:
+### 2. Configurações no sistema
+
+1. Atualizar o sistema:
    ```bash
    sudo apt update -y && sudo apt upgrade -y
    ```
 
-#### 2. Configurar o Wi-Fi (e outras configurações básicas):
-   ```bash
-   armbian-config
-   ```
-
-#### 3. Instalar dependências necessárias para o ambiente Python:
-   ```bash
-   sudo apt install xserver-xorg xinit openbox python3 python3-pip python3-tk customtkinter build-essential python3-dev libffi-dev
-
-   ```
-
-#### 4. Desativar serviços não essenciais (Reativar caso seja necessário fazer debug a problemas de sistema):
+2. Desativar serviços não essenciais (Reativar caso seja necessário fazer debug a problemas de sistema):
    ```bash
    sudo systemctl disable armbian-zram-config.service  # Desativa a configuração de zram do Armbian
    sudo systemctl disable systemd-random-seed.service  # Desativa a semente aleatória do systemd
@@ -56,17 +35,26 @@ O pinout para ligar MCP2515 a um Raspberry Pi Zero:
    sudo systemctl disable systemd-timesyncd.service
    ```
 
-#### 6. Atrasar arranque do serviço `systemd-logind`:
-   ```bash
-   sudo systemctl edit systemd-logind.service
-   ```
-   - Adicionar o seguinte texto no espaço aberto entre comentários:
-     ```ini
-     [Service]
-     ExecStartPre=/bin/sleep 1
-     ```
+3. Desligar Servidor DNS e Configurar Estáticos (Resolução de Nomes):
 
-#### 7. Configurar o arranque automático do user root:
+   ```bash
+   sudo systemctl disable systemd-resolved.service  # Desativa a resolução de nomes do systemd
+   sudo nano /etc/resolv.conf
+   ```
+   - Adicionar ao ficheiro as seguintes linhas:
+     ```ini
+     nameserver 8.8.8.8
+     nameserver 1.1.1.1
+4. Atrasar arranque do serviço `systemd-logind`:
+      ```bash
+      sudo systemctl edit systemd-logind.service
+      ```
+      - Adicionar o seguinte texto no espaço aberto entre comentários:
+        ```ini
+        [Service]
+        ExecStartPre=/bin/sleep 1
+        ```
+5. Configurar o arranque automático do user root e arranque automático do Xorg (com a interface do volante):
    ```bash
    sudo mkdir -p /etc/systemd/system/getty@tty1.service.d/
    sudo nano /etc/systemd/system/getty@tty1.service.d/override.conf
@@ -85,165 +73,97 @@ O pinout para ligar MCP2515 a um Raspberry Pi Zero:
      ```
    - Verificar que está tudo ok após o reboot.
 
-#### 8. Instalar o pacote `can-utils`:
+6. Instalar o pacote `can-utils`:
    ```bash
    sudo apt install can-utils
    ```
 
-#### 9. Ativar o SPI0 e o Overlay do MCP2515 Específico para Armbian
+7. Reiniciar o sistema:
+   ```bash
+   sudo reboot
+   ```
 
-O armbian não suporta nativamente o MCP2515, logo é necessário criar um overlay para configurar a interface CAN.
+8. Configurar a interface CAN:
+   ```bash
+   sudo ip link set can0 up type can bitrate 1000000
+   ```
 
-   1. Abrir o ficheiro `/boot/armbianEnv.txt` e inserir a linha:
-      ```ini
-      overlays=spi-spidev
-      param_spidev_spi_bus=0
-      ```
+9.  Verificar se a interface se encontra a funcionar. Deve ter o nome algo similar a `can0` ou `slcan0`:
+   ```bash
+   ip a
+   ```
 
-   2. Criar a pasta para os overlays:
+10. Testar a interface:
+    - Enviar uma mensagem de teste:
       ```bash
-      sudo mkdir /root/overlays
-      ```
-
-   3. Criar o ficheiro `/root/overlays/spi-mcp251x.dts` e inserir a seguinte configuração:
-      ```dts
-      /dts-v1/;
-      /plugin/;
-
-      / {
-         compatible = "allwinner,sun4i-a10", "allwinner,sun7i-a20", "allwinner,sun8i-h3", "allwinner,sun50i-a64", "allwinner,sun50i-h5";
-         
-         fragment@0 {
-            target-path = "/clocks";
-            __overlay__ {
-                  #address-cells = <1>;
-                  #size-cells = <1>;
-                  can0_osc_fixed: can0_osc_fixed {
-                     compatible = "fixed-clock";
-                     #clock-cells = <0>;
-                     clock-frequency  = <16000000>;  // Frequência do cristal 16 MHz
-                  };
-            };
-         };
-
-         fragment@1 {
-            target = <&pio>;
-            __overlay__ {
-                  can0_pin_irq: can0_pin_irq {
-                     pins = "PL2";  // Corrigir para o pino PL2 para interrupção
-                     function = "irq";
-                     bias-pull-up;
-                  };
-            };
-         };
-
-         fragment@2 {
-            target = <&spi0>;
-            __overlay__ {
-                  #address-cells = <1>;
-                  #size-cells = <0>;
-                  status = "okay";
-                  mcp2515 {
-                     reg = <0>;
-                     compatible = "microchip,mcp2515";
-                     pinctrl-names = "default";
-                     pinctrl-0 = <&can0_pin_irq>;
-                     spi-max-frequency = <1000000>;
-                     interrupt-parent = <&pio>;
-                     interrupts = <0 2 8>;  // Interrupção no pino PL2
-                     clocks = <&can0_osc_fixed>;
-                     status = "okay";
-                  };
-            };
-         };
-      };
-      ```
-
-   4. Configurar o .dts criado:
-      ```bash
-      armbian-add-overlay spi-mcp251x.dts
-      ```
-
-   5. Configurar a interface CAN:
-      ```bash
-      sudo ip link set can0 up type can bitrate 1000000
-      ```
-
-   6. Verificar se a interface se encontra a funcionar. Deve ter o nome algo similar a `can0` ou `slcan0`:
-      ```bash
-      ip a
-
-      # Testar a interface:
-      
-      # Enviar uma mensagem de teste:
       cansend can0 MENSAGEM
-
-      # Fazer dump da interface:
+      ```
+    - Fazer dump da interface:
+      ```bash
       candump can0
       ```
 
-#### 10. Clonar o repositório da interface:
+---
+
+## Ambiente Python & Apresentação Gráfica
+
+Caso o sistema se encontre bem configurado, para arrancar com a interface gráfica do volante, apenas será necessário correr o comando:
+```bash
+startx
+```
+
+### 1º Setup do Ambiente Python
+
+1. Instalar dependências necessárias:
+   ```bash
+   sudo apt install xserver-xorg xinit openbox python3 python3-pip python3-tk customtkinter
+   ```
+
+2. Clonar o repositório:
    ```bash
    sudo git clone https://github.com/pontefrancisco/Steering-Wheel-LART /root/Steering-Wheel-LART
    ```
 
-#### 11. Navegar até ao repositório:
+3. Navegar até ao repositório:
    ```bash
-   cd /root/Steering-Wheel-LART
+   cd ~/Steering-Wheel-LART
    ```
 
-#### 12. Criar um ambiente virtual Python:
+4. Criar um ambiente virtual Python:
    ```bash
    python3 -m venv venv
    ```
 
-#### 13. Ativar o ambiente virtual:
+5. Ativar o ambiente virtual:
    ```bash
    source venv/bin/activate
    ```
 
-#### 14. Instalar as dependências do projeto:
+6. Instalar as dependências do projeto:
    ```bash
    pip3 install -r requirements.txt
    ```
 
-#### 15. Configurar a abertura da interface gráfica ao arrancar o X11:
+7. Configurar o arranque automático do script ao abrir a interface gráfica:
    ```bash
    sudo nano ~/.xinitrc
    ```
    - Adicionar ao ficheiro as seguintes linhas:
      ```bash
-      #!/bin/bash -i
-      openbox &
-      cd /root/Steering-Wheel-LART/
-      . /root/Steering-Wheel-LART/venv/bin/activate
-      export DISPLAY=:0
-      echo $DISPLAY
-      python3 /root/Steering-Wheel-LART/interface.py
+     openbox &
+     source ~/Steering-Wheel-LART/venv/bin/activate
+     export DISPLAY=:0
+     echo $DISPLAY
+     python3 ~/Steering-Wheel-LART/interface.py
      ```
 
-#### 16. Configurar o arranque automático da interface após o auto login:
-```bash
-sudo nano ~/.bashrc
-```
-- Inserir no **FINAL** do ficheiro:
-  ```bash
-  # Iniciar automaticamente a interface gráfica ao fazer login
-  if [ -z "$DISPLAY" ] && [ "$(tty)" == "/dev/tty1" ]; then
-      startx
-  fi
-  ```
-
-#### 17. Reiniciar o sistema:
+8. Arrancar com a interface:
    ```bash
-   sudo reboot
-   ```
-
----
+   startx
 
 ## Setup Após a Primeira Vez
 
-Caso o sistema já tenha sido configurado previamente e seja necessário fazer alterações, basta seguir os passos abaixo para iniciar o ambiente:
+Caso o sistema já tenha sido configurado previamente, basta seguir os passos abaixo para iniciar o ambiente:
 
 1. Ativar o ambiente virtual Python:
    ```bash
@@ -260,43 +180,8 @@ Caso o sistema já tenha sido configurado previamente e seja necessário fazer a
    startx
    ```
 
-## Alguns comandos necessários (Debug)
 
-1. Terminar a interface gráfica (Que abriu automaticamente com o arranque):
-   ```bash
-   ps aux | grep Xorg
-   sudo kill -9 PROCESSO
-   ```
 
-2. Arrancar novamente o X com a interface:
-   ```bash
-   startx
-   ```
-3. Configurar CAN num host Linux com CAN2USB
 
-   1. Instalar can-utils:
-      - Fedora:
-        ```bash
-        sudo dnf install can-utils
-        ```
 
-   2. Procurar o dispositivo CAN2USB:
-      ```bash
-      ls /dev
-      ```
-      - O dispositivo terá algum nome do tipo `ttyUSB0` ou `ttyACM0`.
-
-   3. Configurar o dispositivo:
-      ```bash
-      sudo slcand -o -c -s8 /dev/ttyACM0 slcan0
-      ```
-
-   4. Subir a interface, caso necessário:
-      ```bash
-      sudo ip link set slcan0 up
-      ```
-
-   5. Mandar a interface abaixo, caso necessário:
-      ```bash
-      sudo ip link set slcan0 down
-      ```
+   
