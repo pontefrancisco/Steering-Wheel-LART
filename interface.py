@@ -35,7 +35,7 @@ def solid_color_test():
 app = ctk.CTk()
 app.geometry("800x480")
 app.title("Dashboard")
-app.attributes("-fullscreen", True)
+app.attributes("-fullscreen", True)  # Commented out for debugging
 # R2D WARNING
 R2D_label = ctk.CTkLabel(app, text="R2D PLACEHOLDER", font=("Noto Sans Bold", 30, "bold"), text_color="red")
 R2D_label.place(relx=0.5, rely=0.04, anchor="center")
@@ -156,7 +156,7 @@ def update_data():
     soc_LV_bar.set(soc_hv_level)
     soc_LV_per.configure(text=str(int(soc_hv_level * 100)) + '%')
 
-    frame.after(1000, update_data)  # Schedule the function to be called again after 1 s
+    frame.after(5, update_data)  # Schedule the function to be called again after 1 s
 update_data()
 
 ######################################################################################################## Debug Window
@@ -274,14 +274,19 @@ open_window_button = ctk.CTkButton(app, text="CALIBRATION", command=open_calibra
 open_window_button.place(relx=0.7, rely=0.95, anchor='center')
 ###################################################
 
-def receive_messages():
-    bus = can.Bus(interface="socketcan", channel="can0", bitrate=1000000)
+bus = can.Bus(interface="socketcan", channel="can0", bitrate=1000000)
+
+def poll_can():
+    msg = bus.recv(timeout=0.0)
+    # Flush stale messages
     while True:
-        msg = bus.recv()
-        if msg:
-            print(f"[DEBUG] Received CAN ID={hex(msg.arbitration_id)}, Data={msg.data}")
-            app.after(0, update_gui, msg)  # Schedule GUI update
-    bus.shutdown()
+        new_msg = bus.recv(timeout=0.0)
+        if not new_msg:
+            break
+        msg = new_msg
+    if msg:
+        update_gui(msg)
+    app.after(50, poll_can)
 
 def parse_can_header(header_path):
     macros_by_id = {}
@@ -336,14 +341,14 @@ macros_by_id, decode_macros = parse_can_header(HEADER_PATH)
 def update_gui(msg):
     global data_1, data_2, data_3, data_4, data_5, data_6
     if msg.arbitration_id in macros_by_id:
-        print(f"[DEBUG] Recognized ID={hex(msg.arbitration_id)}; Macros={macros_by_id[msg.arbitration_id]}")
+        #print(f"[DEBUG] Recognized ID={hex(msg.arbitration_id)}; Macros={macros_by_id[msg.arbitration_id]}")
         for macro_name in macros_by_id[msg.arbitration_id]:
             if macro_name not in decode_macros:
-                print(f"[DEBUG] Skipping non-decode macro='{macro_name}'")
+                #print(f"[DEBUG] Skipping non-decode macro='{macro_name}'")
                 continue
             expr = decode_macros[macro_name]
             result = decode_data(msg.data, expr)
-            print(f"[DEBUG] Macro='{macro_name}' DecodedValue={result}")
+            #print(f"[DEBUG] Macro='{macro_name}' DecodedValue={result}")
             match macro_name:
                 case "MAP_DECODE_MOTOR_TEMPERATURE":
                     data_1 = result
@@ -354,6 +359,7 @@ def update_gui(msg):
                 case "MAP_DECODE_CONSUMED_POWER":
                     data_3 = result
                     data_label_3.configure(text=str(result))
+                    print(f"DecodedValue={result}")
                 case "MAP_DECODE_TARGET_POWER":
                     data_4 = result
                     data_label_4.configure(text=str(result))
@@ -365,8 +371,5 @@ def update_gui(msg):
                 case _:
                     pass
 
-# Start the receiver thread
-receiver_thread = threading.Thread(target=receive_messages, daemon=True)
-receiver_thread.start()
-
+poll_can()
 app.mainloop()
