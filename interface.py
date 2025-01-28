@@ -5,6 +5,7 @@ import threading
 from cxxheaderparser.simple import parse_file  # Import cxxheaderparser
 import os
 import re
+import glob  # Import glob to handle multiple files
 
 ctk.set_appearance_mode("dark")  # ou "dark"
 ctk.set_default_color_theme("blue")  # Testa diferentes temas: "blue", "green", "dark-blue"
@@ -288,41 +289,42 @@ def poll_can():
         update_gui(msg)
     app.after(50, poll_can)
 
-def parse_can_header(header_path):
+def parse_can_header(folder_path):  # Modify to accept a folder path
     macros_by_id = {}
     decode_macros = {}
-    current_can_id = None
-    with open(header_path, 'r') as file:
-        for line in file:
-            # Match CAN ID definitions
-            can_match = re.match(r'#define CAN_(\w+)\s+(\w+)', line)
-            if can_match:
-                current_can_id = int(can_match.group(2), 16)
-                if current_can_id not in macros_by_id:
-                    macros_by_id[current_can_id] = []
-                continue
-            # Match MAP_DECODE macros and associate them with the current CAN ID
-            decode_match = re.match(r'#define (MAP_DECODE_\w+)\s*\(x\)\s*(.+)', line)
-            if decode_match and current_can_id is not None:
-                macro_name = decode_match.group(1)
-                decode_expr = decode_match.group(2).strip()
-                # Remove unintended '(x)' prefix if present
-                if decode_expr.startswith('(x)'):
-                    decode_expr = decode_expr[3:].trip()
-                # Remove incorrect '(x)' patterns.
-                decode_expr = decode_expr.replace('(x)(', '(')
-                decode_expr = decode_expr.replace('(x) ', ' ')
-                decode_expr = decode_expr.replace('(x)', '')
-                # Recursively resolve nested MAP_DECODE_* macros
-                while re.search(r'MAP_DECODE_\w+', decode_expr):
-                    nested_macro = re.search(r'(MAP_DECODE_\w+)', decode_expr).group(1)
-                    if nested_macro in decode_macros:
-                        decode_expr = decode_expr.replace(nested_macro, f"({decode_macros[nested_macro]})")
-                    else:
-                        break  # Avoid infinite loop if macro is undefined
-                decode_macros[macro_name] = decode_expr
-                macros_by_id[current_can_id].append(macro_name)
+    for header_path in glob.glob(os.path.join(folder_path, "*.h")):  # Iterate over all .h files
+        current_can_id = None
+        with open(header_path, 'r') as file:
+            for line in file:
+                # Match CAN ID definitions
+                can_match = re.match(r'#define CAN_(\w+)\s+(\w+)', line)
+                if can_match:
+                    current_can_id = int(can_match.group(2), 16)
+                    if current_can_id not in macros_by_id:
+                        macros_by_id[current_can_id] = []
+                    continue
+                # Match MAP_DECODE macros and associate them with the current CAN ID
+                decode_match = re.match(r'#define (MAP_DECODE_\w+)\s*\(x\)\s*(.+)', line)
+                if decode_match and current_can_id is not None:
+                    macro_name = decode_match.group(1)
+                    decode_expr = decode_match.group(2).strip()
+                    if decode_expr.startswith('(x)'):
+                        decode_expr = decode_expr[3:].strip()
+                    decode_expr = decode_expr.replace('(x)(', '(').replace('(x) ', ' ').replace('(x)', '')
+                    while re.search(r'MAP_DECODE_\w+', decode_expr):
+                        nested_macro = re.search(r'(MAP_DECODE_\w+)', decode_expr).group(1)
+                        if nested_macro in decode_macros:
+                            decode_expr = decode_expr.replace(nested_macro, f"({decode_macros[nested_macro]})")
+                        else:
+                            break
+                    decode_macros[macro_name] = decode_expr
+                    macros_by_id[current_can_id].append(macro_name)
+
     return macros_by_id, decode_macros
+
+# Parse macros on startup
+HEADER_FOLDER = "Can-Header-Map"  # Change from single file to folder
+macros_by_id, decode_macros = parse_can_header(HEADER_FOLDER)
 
 def decode_data(data_bytes, macro_expr):
     x = list(data_bytes)  # Define 'x' as a list of data bytes
@@ -333,10 +335,6 @@ def decode_data(data_bytes, macro_expr):
         macro_expr
     )
     return eval(macro_expr_python, {}, {'x': x})  # Pass 'x' to eval
-
-# Parse macros on startup
-HEADER_PATH = "CAN_datadb.h"
-macros_by_id, decode_macros = parse_can_header(HEADER_PATH)
 
 def update_gui(msg):
     global data_1, data_2, data_3, data_4, data_5, data_6
