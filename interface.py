@@ -286,53 +286,84 @@ def receive_messages():
 def parse_can_header(header_path):
     macros_by_id = {}
     decode_macros = {}
+    current_can_id = None
     with open(header_path, 'r') as file:
         for line in file:
-            match = re.match(r'#define CAN_(\w+)\s+(\w+)', line)
-            if match:
-                can_id = int(match.group(2), 16)
-                if can_id not in macros_by_id:
-                    macros_by_id[can_id] = []
-                macros_by_id[can_id].append(match.group(1))
-            match = re.match(r'#define (MAP_DECODE_\w+)\s+(.+)', line)
-            if match:
-                decode_macros[match.group(1)] = match.group(2)
+            # Match CAN ID definitions
+            can_match = re.match(r'#define CAN_(\w+)\s+(\w+)', line)
+            if can_match:
+                current_can_id = int(can_match.group(2), 16)
+                if current_can_id not in macros_by_id:
+                    macros_by_id[current_can_id] = []
+                continue
+            # Match MAP_DECODE macros and associate them with the current CAN ID
+            decode_match = re.match(r'#define (MAP_DECODE_\w+)\s*\(x\)\s*(.+)', line)
+            if decode_match and current_can_id is not None:
+                macro_name = decode_match.group(1)
+                decode_expr = decode_match.group(2).strip()
+                # Remove unintended '(x)' prefix if present
+                if decode_expr.startswith('(x)'):
+                    decode_expr = decode_expr[3:].trip()
+                # Remove incorrect '(x)' patterns.
+                decode_expr = decode_expr.replace('(x)(', '(')
+                decode_expr = decode_expr.replace('(x) ', ' ')
+                decode_expr = decode_expr.replace('(x)', '')
+                # Recursively resolve nested MAP_DECODE_* macros
+                while re.search(r'MAP_DECODE_\w+', decode_expr):
+                    nested_macro = re.search(r'(MAP_DECODE_\w+)', decode_expr).group(1)
+                    if nested_macro in decode_macros:
+                        decode_expr = decode_expr.replace(nested_macro, f"({decode_macros[nested_macro]})")
+                    else:
+                        break  # Avoid infinite loop if macro is undefined
+                decode_macros[macro_name] = decode_expr
+                macros_by_id[current_can_id].append(macro_name)
     return macros_by_id, decode_macros
 
 def decode_data(data_bytes, macro_expr):
-    data_str = ''.join(f'{byte:02x}' for byte in data_bytes)
-    macro_expr_python = re.sub(r'\bdata\[(\d+)\]', lambda m: f'int(data_str[{int(m.group(1)) * 2}:{int(m.group(1)) * 2 + 2}], 16)', macro_expr)
-    return eval(macro_expr_python)
+    x = list(data_bytes)  # Define 'x' as a list of data bytes
+    data_str = ''.join(f'{byte:02x}' for byte in data_bytes)  # Define 'data_str'
+    macro_expr_python = re.sub(
+        r'\bdata\[(\d+)\]',
+        lambda m: f'int("0x{data_str[int(m.group(1))*2:int(m.group(1))*2+2]}", 16)',
+        macro_expr
+    )
+    return eval(macro_expr_python, {}, {'x': x})  # Pass 'x' to eval
 
 # Parse macros on startup
 HEADER_PATH = "CAN_datadb.h"
 macros_by_id, decode_macros = parse_can_header(HEADER_PATH)
 
 def update_gui(msg):
+    global data_1, data_2, data_3, data_4, data_5, data_6
     if msg.arbitration_id in macros_by_id:
         print(f"[DEBUG] Recognized ID={hex(msg.arbitration_id)}; Macros={macros_by_id[msg.arbitration_id]}")
         for macro_name in macros_by_id[msg.arbitration_id]:
-            if macro_name in decode_macros:
-                expr = decode_macros[macro_name]
-                result = decode_data(msg.data, expr)
-                print(f"[DEBUG] Macro='{macro_name}' DecodedValue={result}")
-                match macro_name:
-                    case "MAP_DECODE_MOTOR_TEMPERATURE":
-                        data_label_1.configure(text=str(result))
-                    case "MAP_DECODE_INVERTER_TEMPERATURE":
-                        data_label_2.configure(text=str(result))
-                    case "MAP_DECODE_CONSUMED_POWER":
-                        data_label_3.configure(text=str(result))
-                    case "MAP_DECODE_TARGET_POWER":
-                        data_label_4.configure(text=str(result))
-                    case "MAP_DECODE_BRAKE_PRESSURE":
-                        data_label_5.configure(text=str(result))
-                    # case "MAP_DECODE_TOQUE_VECTORING":  # Example
-                    #     data_label_3.configure(text=str(result))
-                    case _:
-                        pass
-            else:
+            if macro_name not in decode_macros:
                 print(f"[DEBUG] Skipping non-decode macro='{macro_name}'")
+                continue
+            expr = decode_macros[macro_name]
+            result = decode_data(msg.data, expr)
+            print(f"[DEBUG] Macro='{macro_name}' DecodedValue={result}")
+            match macro_name:
+                case "MAP_DECODE_MOTOR_TEMPERATURE":
+                    data_1 = result
+                    data_label_1.configure(text=str(result))
+                case "MAP_DECODE_INVERTER_TEMPERATURE":
+                    data_2 = result
+                    data_label_2.configure(text=str(result))
+                case "MAP_DECODE_CONSUMED_POWER":
+                    data_3 = result
+                    data_label_3.configure(text=str(result))
+                case "MAP_DECODE_TARGET_POWER":
+                    data_4 = result
+                    data_label_4.configure(text=str(result))
+                case "MAP_DECODE_BRAKE_PRESSURE":
+                    data_5 = result
+                    data_label_5.configure(text=str(result))
+                # case "MAP_DECODE_TOQUE_VECTORING":  # Example
+                #     data_label_3.configure(text=str(result))
+                case _:
+                    pass
 
 # Start the receiver thread
 receiver_thread = threading.Thread(target=receive_messages, daemon=True)

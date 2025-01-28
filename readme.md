@@ -40,7 +40,8 @@ O pinout para ligar MCP2515 a um Raspberry Pi Zero:
 
 #### 3. Instalar dependências necessárias para o ambiente Python:
    ```bash
-   sudo apt install xserver-xorg xinit openbox python3 python3-pip python3-tk customtkinter
+   sudo apt install xserver-xorg xinit openbox python3 python3-pip python3-tk customtkinter build-essential python3-dev libffi-dev
+
    ```
 
 #### 4. Desativar serviços não essenciais (Reativar caso seja necessário fazer debug a problemas de sistema):
@@ -222,16 +223,16 @@ O armbian não suporta nativamente o MCP2515, logo é necessário criar um overl
      ```
 
 #### 16. Configurar o arranque automático da interface após o auto login:
-    ```bash
-    sudo nano ~/.bashrc
-    ```
-    - Inserir no **FINAL** do ficheiro:
-      ```bash
-      # Iniciar automaticamente a interface gráfica ao fazer login
-      if [ -z "$DISPLAY" ] && [ "$(tty)" == "/dev/tty1" ]; then
-          startx
-      fi
-      ```
+```bash
+sudo nano ~/.bashrc
+```
+- Inserir no **FINAL** do ficheiro:
+  ```bash
+  # Iniciar automaticamente a interface gráfica ao fazer login
+  if [ -z "$DISPLAY" ] && [ "$(tty)" == "/dev/tty1" ]; then
+      startx
+  fi
+  ```
 
 #### 17. Reiniciar o sistema:
    ```bash
