@@ -7,6 +7,7 @@ import os
 import re
 import random
 import glob  # Import glob to handle multiple files
+from can_parser import parse_can_header, decode_data, macros_by_id, decode_macros
 
 ctk.set_appearance_mode("dark")  # or "dark"
 ctk.set_default_color_theme("blue")  # Test different themes: "blue", "green", "dark-blue"
@@ -270,6 +271,9 @@ open_calibration_button = ctk.CTkButton(app, text="CALIBRATION", command=open_ca
 open_calibration_button.place(relx=0.7, rely=0.95, anchor='center')
 ###################################################
 
+HEADER_FOLDER = "Can-Header-Map"  # Change from single file to folder
+macros_by_id, decode_macros = parse_can_header(HEADER_FOLDER)
+
 bus = can.Bus(interface="socketcan", channel="can0", bitrate=1000000)
 
 def poll_can():
@@ -283,53 +287,6 @@ def poll_can():
     if msg:
         update_gui(msg)
     app.after(50, poll_can)
-
-def parse_can_header(folder_path):  # Modify to accept a folder path
-    macros_by_id = {}
-    decode_macros = {}
-    for header_path in glob.glob(os.path.join(folder_path, "*.h")):  # Iterate over all .h files
-        current_can_id = None
-        with open(header_path, 'r') as file:
-            for line in file:
-                # Match CAN ID definitions
-                can_match = re.match(r'#define CAN_(\w+)\s+(\w+)', line)
-                if can_match:
-                    current_can_id = int(can_match.group(2), 16)
-                    if current_can_id not in macros_by_id:
-                        macros_by_id[current_can_id] = []
-                    continue
-                # Match MAP_DECODE macros and associate them with the current CAN ID
-                decode_match = re.match(r'#define (MAP_DECODE_\w+)\s*\(x\)\s*(.+)', line)
-                if decode_match and current_can_id is not None:
-                    macro_name = decode_match.group(1)
-                    decode_expr = decode_match.group(2).strip()
-                    if decode_expr.startswith('(x)'):
-                        decode_expr = decode_expr[3:].strip()
-                    decode_expr = decode_expr.replace('(x)(', '(').replace('(x) ', ' ').replace('(x)', '')
-                    while re.search(r'MAP_DECODE_\w+', decode_expr):
-                        nested_macro = re.search(r'(MAP_DECODE_\w+)', decode_expr).group(1)
-                        if nested_macro in decode_macros:
-                            decode_expr = decode_expr.replace(nested_macro, f"({decode_macros[nested_macro]})")
-                        else:
-                            break
-                    decode_macros[macro_name] = decode_expr
-                    macros_by_id[current_can_id].append(macro_name)
-
-    return macros_by_id, decode_macros
-
-# Parse macros on startup
-HEADER_FOLDER = "Can-Header-Map"  # Change from single file to folder
-macros_by_id, decode_macros = parse_can_header(HEADER_FOLDER)
-
-def decode_data(data_bytes, macro_expr):
-    x = list(data_bytes)  # Define 'x' as a list of data bytes
-    data_str = ''.join(f'{byte:02x}' for byte in data_bytes)  # Convert data bytes to a hexadecimal string
-    macro_expr_python = re.sub(
-        r'\bdata\[(\d+)\]',
-        lambda m: f'int("0x{data_str[int(m.group(1))*2:int(m.group(1))*2+2]}", 16)',
-        macro_expr
-    )  # Replace data indices with actual byte values
-    return eval(macro_expr_python, {}, {'x': x})  # Evaluate the expression with 'x' in the context
 
 last_r2d_state = None
 
@@ -371,11 +328,10 @@ def update_gui(msg):
                             # Only pick a new random message when transitioning to 0
                             global funny_message
                             funny_messages = [
-                                "404: Ready2Drive Not Found",
                                 "Out of Order (Try Again Later)",
                                 "!READY2DRIVE",
                                 "Nah, Lets Walk Instead",
-                                "VCU is on Strike",
+                                "VCU is on Strike / VCU está em greve",
                                 "ALERT: Car Identifies as a Park Bench"
                             ]
                             funny_message = random.choice(funny_messages)
